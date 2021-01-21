@@ -375,6 +375,56 @@ where
     }
 }
 
+pub struct AnyChar;
+
+impl AnyChar {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl<'a> Parse<'a> for AnyChar {
+    type Output = char;
+
+    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+        if input.len() == 0 {
+            return Err(input);
+        }
+
+        let ch = input[0] as char;
+
+        match ch.is_ascii_alphabetic() {
+            true => Ok((&input[1..], ch)),
+            false => Err(input),
+        }
+    }
+}
+
+pub struct AnyDigit;
+
+impl AnyDigit {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl<'a> Parse<'a> for AnyDigit {
+    type Output = char;
+
+    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+        if input.len() == 0 {
+            return Err(input);
+        }
+
+        let digit = input[0] as char;
+
+        match digit.is_numeric() {
+            true => Ok((&input[1..], digit)),
+            false => Err(input),
+        }
+    }
+}
+
 pub struct Byte {
     byte: u8,
 }
@@ -414,7 +464,7 @@ impl Char {
 }
 
 impl<'a> Parse<'a> for Char {
-    type Output = &'a u8;
+    type Output = char;
 
     #[inline]
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
@@ -422,11 +472,12 @@ impl<'a> Parse<'a> for Char {
             return Err(input);
         }
 
-        if self.ch == input[0] as char {
-            return Ok((&input[1..], &input[0]));
-        }
+        let ch = input[0] as char;
 
-        Err(input)
+        match self.ch == ch {
+            true => Ok((&input[1..], ch)),
+            false => Err(input),
+        }
     }
 }
 

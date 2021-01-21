@@ -95,6 +95,16 @@ where
 }
 
 #[inline]
+pub fn any_char<'a>() -> Cell<'a, AnyChar> {
+    Cell::new(AnyChar::new())
+}
+
+#[inline]
+pub fn any_digit<'a>() -> Cell<'a, AnyDigit> {
+    Cell::new(AnyDigit::new())
+}
+
+#[inline]
 pub fn byte_<'a>(byte: u8) -> Cell<'a, Byte> {
     Cell::new(Byte::new(byte))
 }
