@@ -3,14 +3,14 @@ use parsing::prelude::*;
 struct RequestBuilder<'a> {
     method: Option<&'a str>,
     path: Option<&'a str>,
-    http: Option<&'a str>,
+    version: Option<&'a str>,
     headers: Vec<(&'a str, &'a str)>,
 }
 
 struct Request<'a> {
     method: &'a str,
     path: &'a str,
-    http: &'a str,
+    version: &'a str,
     headers: Vec<(&'a str, &'a str)>,
 }
 
@@ -19,7 +19,7 @@ impl<'a> RequestBuilder<'a> {
         Self {
             method: None,
             path: None,
-            http: None,
+            version: None,
             headers: Vec::new(),
         }
     }
@@ -28,62 +28,62 @@ impl<'a> RequestBuilder<'a> {
         Request {
             method: self.method.unwrap(),
             path: self.path.unwrap(),
-            http: self.http.unwrap(),
+            version: self.version.unwrap(),
             headers: self.headers,
         }
     }
 }
 
 fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
-    State::new(|| RequestBuilder::new())
-        .then(parse_request())
+    state(|| RequestBuilder::new())
+        .then(cell(parse_request()))
         .map(|(mut builder, (method, path, version))| {
             builder.method = Some(method);
             builder.path = Some(path);
-            builder.http = Some(version);
+            builder.version = Some(version);
             builder
         })
-        .then(parse_headers())
+        .then(cell(parse_headers()))
         .map(|(mut builder, headers)| {
             builder.headers = headers;
             builder
         })
-        .skip(Str::new("\r\n"))
+        .skip(str_("\r\n"))
         .map(|builder| builder.build())
 }
 
 fn parse_request<'a>() -> impl Parse<'a, Output = (&'a str, &'a str, &'a str)> {
-    let method = Str::new("GET")
-        | Str::new("HEAD")
-        | Str::new("POST")
-        | Str::new("PUT")
-        | Str::new("DELETE")
-        | Str::new("CONNECT")
-        | Str::new("OPTIONS")
-        | Str::new("TRACE")
-        | Str::new("PATCH");
+    let method = str_("GET")
+        | str_("HEAD")
+        | str_("POST")
+        | str_("PUT")
+        | str_("DELETE")
+        | str_("CONNECT")
+        | str_("OPTIONS")
+        | str_("TRACE")
+        | str_("PATCH");
 
-    let path = TakeUntil::new(Char::new(' ')).map(|bytes| to_str(bytes));
+    let path = take_until(char_(' ')).map(|bytes| to_str(bytes));
 
-    let version = TakeUntil::new(Str::new("\r\n")).map(|bytes| to_str(bytes));
+    let version = take_until(str_("\r\n")).map(|bytes| to_str(bytes));
 
     method
-        .skip(Char::new(' '))
+        .skip(char_(' '))
         .then(path)
-        .skip(Char::new(' '))
+        .skip(char_(' '))
         .then(version)
-        .skip(Str::new("\r\n"))
+        .skip(str_("\r\n"))
         .map(|((a, b), c)| (a, b, c))
 }
 
 fn parse_headers<'a>() -> impl Parse<'a, Output = Vec<(&'a str, &'a str)>> {
-    let header = TakeUntil::new(Char::new(':'))
-        .skip(Str::new(": "))
-        .then(TakeUntil::new(Str::new("\r\n")))
+    let header = take_until(char_(':'))
+        .skip(str_(": "))
+        .then(take_until(str_("\r\n")))
         .map(|(key, value)| (to_str(key), to_str(value)))
-        .skip(Str::new("\r\n"));
+        .skip(str_("\r\n"));
 
-    Many1::new(header)
+    many1(header)
 }
 
 fn to_str<'a>(bytes: &'a [u8]) -> &'a str {
@@ -101,7 +101,7 @@ fn http_test() {
         Ok((xs, request)) => {
             assert_eq!(request.method, "GET");
             assert_eq!(request.path, "/index.html");
-            assert_eq!(request.http, "HTTP/1.1");
+            assert_eq!(request.version, "HTTP/1.1");
             assert_eq!(
                 request.headers,
                 vec![

@@ -1,6 +1,6 @@
+use crate::cell::*;
 use core::fmt::Display;
 use core::marker::PhantomData;
-use core::ops::BitOr;
 
 pub trait Parse<'a> {
     type Output;
@@ -8,48 +8,48 @@ pub trait Parse<'a> {
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]>;
 
     #[inline]
-    fn map<B, F>(self, f: F) -> Map<'a, Self, F, Self::Output, B>
+    fn map<B, F>(self, f: F) -> Cell<'a, Map<'a, Self, F, Self::Output, B>>
     where
         Self: Sized,
         F: Fn(Self::Output) -> B,
     {
-        Map::new(self, f)
+        Cell::new(Map::new(self, f))
     }
 
     #[inline]
-    fn or<P2>(self, p2: P2) -> Or<'a, Self, P2>
+    fn or<RHS>(self, p2: Cell<'a, RHS>) -> Cell<'a, Or<'a, Self, RHS>>
     where
         Self: Sized,
-        P2: Parse<'a>,
+        RHS: Parse<'a, Output = Self::Output>,
     {
-        Or::new(self, p2)
+        Cell::new(Or::new(self, p2.take()))
     }
 
     #[inline]
-    fn then<P2>(self, p2: P2) -> (Self, P2)
+    fn then<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, (Self, RHS)>
     where
         Self: Sized,
-        P2: Parse<'a>,
+        RHS: Parse<'a>,
     {
-        (self, p2)
+        Cell::new((self, rhs.take()))
     }
 
     #[inline]
-    fn skip<P2>(self, p2: P2) -> Skip<'a, Self, P2>
+    fn skip<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, Self, RHS>>
     where
         Self: Sized,
-        P2: Parse<'a>,
+        RHS: Parse<'a>,
     {
-        Skip::new(self, p2)
+        Cell::new(Skip::new(self, rhs.take()))
     }
 
     #[inline]
-    fn skip_left<P2>(self, p2: P2) -> Skip<'a, P2, Self>
+    fn skip_left<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, RHS, Self>>
     where
         Self: Sized,
-        P2: Parse<'a>,
+        RHS: Parse<'a>,
     {
-        Skip::new(p2, self)
+        Cell::new(Skip::new(rhs.take(), self))
     }
 }
 
@@ -66,6 +66,39 @@ where
         let (input, b) = self.1.parse(input)?;
 
         Ok((input, (a, b)))
+    }
+}
+
+pub struct State<'a, F, T>
+where
+    F: Fn() -> T,
+{
+    f: F,
+    marker: PhantomData<&'a ()>,
+}
+
+impl<'a, F, T> State<'a, F, T>
+where
+    F: Fn() -> T,
+{
+    #[inline]
+    pub fn new(f: F) -> Self {
+        Self {
+            f,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, F, T> Parse<'a> for State<'a, F, T>
+where
+    F: Fn() -> T,
+{
+    type Output = T;
+
+    #[inline]
+    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+        Ok((input, (self.f)()))
     }
 }
 
@@ -123,6 +156,7 @@ where
     parser2: P2,
     marker: PhantomData<&'a ()>,
 }
+
 impl<'a, P1, P2> Or<'a, P1, P2>
 where
     P1: Parse<'a>,
@@ -347,7 +381,7 @@ pub struct Byte {
 
 impl Byte {
     #[inline]
-    pub fn new(byte: u8) -> Self {
+    pub fn new<'a>(byte: u8) -> Self {
         Self { byte }
     }
 }
@@ -374,7 +408,7 @@ pub struct Char {
 
 impl Char {
     #[inline]
-    pub fn new(ch: char) -> Self {
+    pub fn new<'a>(ch: char) -> Self {
         Self { ch }
     }
 }
@@ -437,61 +471,5 @@ impl<'a> Parse<'a> for Str<'a> {
         let output = unsafe { std::str::from_utf8_unchecked(&input[0..self.len]) };
 
         Ok((&input[self.len..], output))
-    }
-}
-
-pub struct State<'a, F, T>
-where
-    F: Fn() -> T,
-{
-    f: F,
-    marker: PhantomData<&'a ()>,
-}
-
-impl<'a, F, T> State<'a, F, T>
-where
-    F: Fn() -> T,
-{
-    #[inline]
-    pub fn new(f: F) -> Self {
-        Self {
-            f,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, F, T> Parse<'a> for State<'a, F, T>
-where
-    F: Fn() -> T,
-{
-    type Output = T;
-
-    #[inline]
-    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
-        Ok((input, (self.f)()))
-    }
-}
-
-impl<'a, A, B, C, T> BitOr<C> for Or<'a, A, B>
-where
-    A: Parse<'a, Output = T>,
-    B: Parse<'a, Output = T>,
-    C: Parse<'a, Output = T>,
-{
-    type Output = Or<'a, Or<'a, A, B>, C>;
-
-    #[inline]
-    fn bitor(self, rhs: C) -> Self::Output {
-        self.or(rhs)
-    }
-}
-
-impl<'a> BitOr for Str<'a> {
-    type Output = Or<'a, Str<'a>, Str<'a>>;
-
-    #[inline]
-    fn bitor(self, rhs: Str<'a>) -> Self::Output {
-        self.or(rhs)
     }
 }
