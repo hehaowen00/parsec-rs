@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["hehaowen00"]
 edition = "2018"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [profile.bench]
 codegen-units = 1
 lto = "fat"
@@ -21,3 +23,10 @@ codegen-units = 1
 lto = "fat"
 
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "http"
+harness = false
