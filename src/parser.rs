@@ -17,21 +17,24 @@ pub trait Parse<'a> {
     }
 
     #[inline]
-    fn or<RHS>(self, p2: Cell<'a, RHS>) -> Cell<'a, Or<'a, Self, RHS>>
+    fn or<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Or<'a, Self, RHS>>
     where
         Self: Sized,
         RHS: Parse<'a, Output = Self::Output>,
     {
-        Cell::new(Or::new(self, p2.take()))
+        Cell::new(Or::new(self, rhs.take()))
     }
 
     #[inline]
-    fn then<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, (Self, RHS)>
+    fn then<RHS>(
+        self,
+        rhs: Cell<'a, RHS>,
+    ) -> Cell<'a, And<'a, Self, RHS, Self::Output, RHS::Output>>
     where
         Self: Sized,
         RHS: Parse<'a>,
     {
-        Cell::new((self, rhs.take()))
+        Cell::new(And::new(self, rhs.take()))
     }
 
     #[inline]
@@ -50,22 +53,6 @@ pub trait Parse<'a> {
         RHS: Parse<'a>,
     {
         Cell::new(Skip::new(rhs.take(), self))
-    }
-}
-
-impl<'a, P1, P2, A, B> Parse<'a> for (P1, P2)
-where
-    P1: Parse<'a, Output = A>,
-    P2: Parse<'a, Output = B>,
-{
-    type Output = (A, B);
-
-    #[inline]
-    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
-        let (input, a) = self.0.parse(input)?;
-        let (input, b) = self.1.parse(input)?;
-
-        Ok((input, (a, b)))
     }
 }
 
@@ -144,6 +131,47 @@ where
             let b = (self.f)(a);
             (next, b)
         })
+    }
+}
+
+pub struct And<'a, P1, P2, A, B>
+where
+    P1: Parse<'a, Output = A>,
+    P2: Parse<'a, Output = B>,
+{
+    parser1: P1,
+    parser2: P2,
+    marker: PhantomData<&'a ()>,
+}
+
+impl<'a, P1, P2, A, B> And<'a, P1, P2, A, B>
+where
+    P1: Parse<'a, Output = A>,
+    P2: Parse<'a, Output = B>,
+{
+    #[inline]
+    pub fn new(parser1: P1, parser2: P2) -> Self {
+        Self {
+            parser1,
+            parser2,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, P1, P2, A, B> Parse<'a> for And<'a, P1, P2, A, B>
+where
+    P1: Parse<'a, Output = A>,
+    P2: Parse<'a, Output = B>,
+{
+    type Output = (A, B);
+
+    #[inline]
+    fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+        let (input, a) = self.parser1.parse(input)?;
+        let (input, b) = self.parser2.parse(input)?;
+
+        Ok((input, (a, b)))
     }
 }
 

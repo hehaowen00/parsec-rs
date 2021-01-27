@@ -38,7 +38,7 @@ where
 
     #[inline]
     fn bitor(self, rhs: Cell<'a, RHS>) -> Self::Output {
-        Cell::new(Or::new(self.parser, rhs.parser))
+        self.parser.or(rhs)
     }
 }
 
