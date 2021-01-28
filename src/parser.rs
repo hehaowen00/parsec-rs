@@ -1,4 +1,3 @@
-use crate::cell::*;
 use core::fmt::Display;
 use core::marker::PhantomData;
 
@@ -6,54 +5,6 @@ pub trait Parse<'a> {
     type Output;
 
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]>;
-
-    #[inline]
-    fn map<B, F>(self, f: F) -> Cell<'a, Map<'a, Self, F, Self::Output, B>>
-    where
-        Self: Sized,
-        F: Fn(Self::Output) -> B,
-    {
-        Cell::new(Map::new(self, f))
-    }
-
-    #[inline]
-    fn or<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Or<'a, Self, RHS>>
-    where
-        Self: Sized,
-        RHS: Parse<'a, Output = Self::Output>,
-    {
-        Cell::new(Or::new(self, rhs.take()))
-    }
-
-    #[inline]
-    fn then<RHS>(
-        self,
-        rhs: Cell<'a, RHS>,
-    ) -> Cell<'a, And<'a, Self, RHS, Self::Output, RHS::Output>>
-    where
-        Self: Sized,
-        RHS: Parse<'a>,
-    {
-        Cell::new(And::new(self, rhs.take()))
-    }
-
-    #[inline]
-    fn skip<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, Self, RHS>>
-    where
-        Self: Sized,
-        RHS: Parse<'a>,
-    {
-        Cell::new(Skip::new(self, rhs.take()))
-    }
-
-    #[inline]
-    fn skip_left<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, RHS, Self>>
-    where
-        Self: Sized,
-        RHS: Parse<'a>,
-    {
-        Cell::new(Skip::new(rhs.take(), self))
-    }
 }
 
 pub struct State<'a, F, T>

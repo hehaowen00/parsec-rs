@@ -27,6 +27,46 @@ where
     pub fn take(self) -> P {
         self.parser
     }
+
+    #[inline]
+    pub fn map<B, F>(self, f: F) -> Cell<'a, Map<'a, P, F, P::Output, B>>
+    where
+        F: Fn(P::Output) -> B,
+    {
+        Cell::new(Map::new(self.take(), f))
+    }
+
+    #[inline]
+    pub fn or<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Or<'a, P, RHS>>
+    where
+        RHS: Parse<'a, Output = P::Output>,
+    {
+        Cell::new(Or::new(self.take(), rhs.take()))
+    }
+
+    #[inline]
+    pub fn then<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, And<'a, P, RHS, P::Output, RHS::Output>>
+    where
+        RHS: Parse<'a>,
+    {
+        Cell::new(And::new(self.take(), rhs.take()))
+    }
+
+    #[inline]
+    pub fn skip<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, P, RHS>>
+    where
+        RHS: Parse<'a>,
+    {
+        Cell::new(Skip::new(self.take(), rhs.take()))
+    }
+
+    #[inline]
+    pub fn skip_left<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, RHS, P>>
+    where
+        RHS: Parse<'a>,
+    {
+        Cell::new(Skip::new(rhs.take(), self.take()))
+    }
 }
 
 impl<'a, P, RHS, O> BitOr<Cell<'a, RHS>> for Cell<'a, P>
@@ -38,7 +78,7 @@ where
 
     #[inline]
     fn bitor(self, rhs: Cell<'a, RHS>) -> Self::Output {
-        self.parser.or(rhs)
+        self.or(rhs)
     }
 }
 
