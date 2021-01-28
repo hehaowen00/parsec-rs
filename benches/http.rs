@@ -51,40 +51,40 @@ fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
             builder.headers = headers;
             builder
         })
-        .skip(str_("\r\n"))
+        .skip(string("\r\n"))
         .map(|builder| builder.build())
 }
 
 fn parse_request<'a>() -> impl Parse<'a, Output = (&'a str, &'a str, &'a str)> {
-    let method = str_("GET")
-        | str_("HEAD")
-        | str_("POST")
-        | str_("PUT")
-        | str_("DELETE")
-        | str_("CONNECT")
-        | str_("OPTIONS")
-        | str_("TRACE")
-        | str_("PATCH");
+    let method = string("GET")
+        | string("HEAD")
+        | string("POST")
+        | string("PUT")
+        | string("DELETE")
+        | string("CONNECT")
+        | string("OPTIONS")
+        | string("TRACE")
+        | string("PATCH");
 
     let path = take_until(char_(' ')).map(|bytes| to_str(bytes));
 
-    let version = take_until(str_("\r\n")).map(|bytes| to_str(bytes));
+    let version = take_until(string("\r\n")).map(|bytes| to_str(bytes));
 
     method
         .skip(char_(' '))
         .then(path)
         .skip(char_(' '))
         .then(version)
-        .skip(str_("\r\n"))
+        .skip(string("\r\n"))
         .map(|((a, b), c)| (a, b, c))
 }
 
 fn parse_headers<'a>() -> impl Parse<'a, Output = Vec<(&'a str, &'a str)>> {
     let header = take_until(char_(':'))
-        .skip(str_(": "))
-        .then(take_until(str_("\r\n")))
+        .skip(string(": "))
+        .then(take_until(string("\r\n")))
         .map(|(key, value)| (to_str(key), to_str(value)))
-        .skip(str_("\r\n"));
+        .skip(string("\r\n"));
 
     many1(header)
 }

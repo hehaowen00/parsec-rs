@@ -127,6 +127,24 @@ where
 }
 
 #[inline]
+pub fn skip<'a, P1, P2>(p1: P1, p2: P2) -> Cell<'a, Skip<'a, P1, P2>>
+where
+    P1: Parse<'a>,
+    P2: Parse<'a>,
+{
+    Cell::new(Skip::new(p1, p2))
+}
+
+#[inline]
+pub fn skip_left<'a, P1, P2>(p1: P1, p2: P2) -> Cell<'a, Skip<'a, P2, P1>>
+where
+    P1: Parse<'a>,
+    P2: Parse<'a>,
+{
+    Cell::new(Skip::new(p2, p1))
+}
+
+#[inline]
 pub fn take_until<'a, P>(parser: P) -> Cell<'a, TakeUntil<'a, P>>
 where
     P: Parse<'a>,
@@ -145,7 +163,7 @@ pub fn any_digit<'a>() -> Cell<'a, AnyDigit> {
 }
 
 #[inline]
-pub fn byte_<'a>(byte: u8) -> Cell<'a, Byte> {
+pub fn byte<'a>(byte: u8) -> Cell<'a, Byte> {
     Cell::new(Byte::new(byte))
 }
 
@@ -155,7 +173,7 @@ pub fn char_<'a>(ch: char) -> Cell<'a, Char> {
 }
 
 #[inline]
-pub fn str_<'a, S>(s: S) -> Cell<'a, Str<'a>>
+pub fn string<'a, S>(s: S) -> Cell<'a, Str<'a>>
 where
     S: Display,
 {
