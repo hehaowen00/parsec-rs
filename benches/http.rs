@@ -39,14 +39,14 @@ impl<'a> RequestBuilder<'a> {
 
 fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
     state(|| RequestBuilder::new())
-        .then(cell(parse_request()))
+        .then(parse_request())
         .map(|(mut builder, (method, path, version))| {
             builder.method = Some(method);
             builder.path = Some(path);
             builder.http = Some(version);
             builder
         })
-        .then(cell(parse_headers()))
+        .then(parse_headers())
         .map(|(mut builder, headers)| {
             builder.headers = headers;
             builder
@@ -55,7 +55,7 @@ fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
         .map(|builder| builder.build())
 }
 
-fn parse_request<'a>() -> impl Parse<'a, Output = (&'a str, &'a str, &'a str)> {
+fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'a str)>> {
     let method = string("GET")
         | string("HEAD")
         | string("POST")
@@ -79,7 +79,7 @@ fn parse_request<'a>() -> impl Parse<'a, Output = (&'a str, &'a str, &'a str)> {
         .map(|((a, b), c)| (a, b, c))
 }
 
-fn parse_headers<'a>() -> impl Parse<'a, Output = Vec<(&'a str, &'a str)>> {
+fn parse_headers<'a>() -> Cell<'a, impl Parse<'a, Output = Vec<(&'a str, &'a str)>>> {
     let header = take_until(char_(':'))
         .skip(string(": "))
         .then(take_until(string("\r\n")))

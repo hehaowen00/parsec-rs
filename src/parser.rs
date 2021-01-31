@@ -7,28 +7,24 @@ pub trait Parse<'a> {
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]>;
 }
 
-pub struct State<'a, F, T>
+pub struct State<F, T>
 where
     F: Fn() -> T,
 {
     f: F,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, F, T> State<'a, F, T>
+impl<F, T> State<F, T>
 where
     F: Fn() -> T,
 {
     #[inline]
     pub fn new(f: F) -> Self {
-        Self {
-            f,
-            marker: PhantomData,
-        }
+        Self { f }
     }
 }
 
-impl<'a, F, T> Parse<'a> for State<'a, F, T>
+impl<'a, F, T> Parse<'a> for State<F, T>
 where
     F: Fn() -> T,
 {

@@ -103,7 +103,7 @@ where
 }
 
 #[inline]
-pub fn state<'a, F, T>(f: F) -> Cell<'a, State<'a, F, T>>
+pub fn state<'a, F, T>(f: F) -> Cell<'a, State<F, T>>
 where
     F: Fn() -> T,
 {
