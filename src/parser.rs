@@ -1,4 +1,3 @@
-use core::fmt::Display;
 use core::marker::PhantomData;
 
 pub trait Parse<'a> {
@@ -456,46 +455,105 @@ impl<'a> Parse<'a> for Char {
     }
 }
 
-pub struct Str<'a> {
-    chars: Vec<char>,
-    len: usize,
-    marker: PhantomData<&'a ()>,
+pub struct Slice {
+    bytes: Box<[u8]>,
 }
 
-impl<'a> Str<'a> {
-    #[inline]
-    pub fn new<S>(s: S) -> Self
-    where
-        S: Display,
-    {
-        let chars: Vec<_> = s.to_string().chars().collect();
-        let len = chars.len();
-
+impl Slice {
+    pub fn new(slice: &[u8]) -> Self {
         Self {
-            chars,
-            len,
-            marker: PhantomData,
+            bytes: slice.into(),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
     }
 }
 
-impl<'a> Parse<'a> for Str<'a> {
-    type Output = &'a str;
+impl<'a> Parse<'a> for Slice {
+    type Output = &'a [u8];
 
-    #[inline]
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
-        if input.len() < self.len {
+        if input.len() < self.len() {
             return Err(input);
         }
 
-        for idx in 0..self.len {
-            if self.chars[idx] != input[idx] as char {
+        for idx in 0..self.len() {
+            if self.bytes[idx] != input[idx] {
                 return Err(input);
             }
         }
+        let output = &input[0..self.len()];
 
-        let output = unsafe { std::str::from_utf8_unchecked(&input[0..self.len]) };
+        Ok((&input[self.len()..], output))
+    }
+}
 
-        Ok((&input[self.len..], output))
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "sse4.2"
+))]
+pub mod simd {
+    use super::*;
+    use crate::simd;
+
+    pub struct Slice {
+        bytes: Box<[u8]>,
+    }
+
+    impl Slice {
+        pub fn new(bytes: &[u8]) -> Self {
+            assert!(bytes.len() < 16);
+            Self {
+                bytes: bytes.into(),
+            }
+        }
+
+        pub fn len(&self) -> usize {
+            self.bytes.len()
+        }
+    }
+
+    impl<'a> Parse<'a> for Slice {
+        type Output = &'a [u8];
+
+        fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+            if input.len() < self.len() {
+                return Err(input);
+            }
+
+            if let None = simd::compare(&input[0..self.len()], &self.bytes) {
+                return Err(input);
+            }
+
+            let output = &input[0..self.len()];
+
+            Ok((&input[self.len()..], output))
+        }
+    }
+
+    pub struct TakeUntilLiteral {
+        bytes: Box<[u8]>,
+    }
+
+    impl TakeUntilLiteral {
+        pub fn new(bytes: &[u8]) -> Self {
+            assert!(bytes.len() < 16);
+            Self {
+                bytes: bytes.to_vec().into_boxed_slice(),
+            }
+        }
+    }
+
+    impl<'a> Parse<'a> for TakeUntilLiteral {
+        type Output = &'a [u8];
+
+        fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]> {
+            match simd::compare(input, &self.bytes) {
+                Some(idx) => Ok((&input[idx..], &input[0..idx])),
+                None => Err(input),
+            }
+        }
     }
 }

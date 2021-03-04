@@ -46,12 +46,11 @@ fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
             builder
         })
         .then(parse_headers())
+        .skip(slice(b"\r\n"))
         .map(|(mut builder, headers)| {
             builder.headers = headers;
-            builder
+            builder.build()
         })
-        .skip(slice(b"\r\n"))
-        .map(|builder| builder.build())
 }
 
 fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'a str)>> {
@@ -66,8 +65,8 @@ fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'
         | slice(b"PATCH");
 
     let method = method.map(|bytes| to_str(bytes));
-    let path = take_until(chr(' ')).map(|bytes| to_str(bytes));
-    let version = take_until(slice(b"\r\n")).map(|bytes| to_str(bytes));
+    let path = take_until_literal(b" ").map(|bytes| to_str(bytes));
+    let version = take_until_literal(b"\r\n").map(|bytes| to_str(bytes));
 
     method
         .skip(chr(' '))
@@ -79,9 +78,9 @@ fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'
 }
 
 fn parse_headers<'a>() -> Cell<'a, impl Parse<'a, Output = Vec<(&'a str, &'a str)>>> {
-    let header = take_until(chr(':'))
+    let header = take_until_literal(b":")
         .skip(slice(b": "))
-        .then(take_until(slice(b"\r\n")))
+        .then(take_until_literal(b"\r\n"))
         .map(|(key, value)| (to_str(key), to_str(value)))
         .skip(slice(b"\r\n"));
 
@@ -92,7 +91,7 @@ fn to_str<'a>(bytes: &'a [u8]) -> &'a str {
     unsafe { std::str::from_utf8_unchecked(bytes) }
 }
 
-fn http_bench(c: &mut Criterion) {
+pub fn http_bench(c: &mut Criterion) {
     let bytes = "GET /index.html HTTP/1.1\r\n\
         User-Agent: Mozilla/4.0 (compatible; MSIE5.01; Windows NT)\r\n\
         Accept-Language: en-us\r\n\
@@ -102,7 +101,7 @@ fn http_bench(c: &mut Criterion) {
     let bytes = black_box(bytes);
     let parser = http_parser();
 
-    c.bench_function("http-parser", |b| {
+    c.bench_function("simd-http-parser", |b| {
         b.iter(|| {
             let res = parser.parse(bytes);
             assert!(res.is_ok());

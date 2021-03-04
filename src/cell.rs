@@ -1,7 +1,7 @@
-use crate::parser::*;
-use core::fmt::Display;
 use core::marker::PhantomData;
 use core::ops::BitOr;
+
+use crate::parser::*;
 
 pub struct Cell<'a, P>
 where
@@ -168,14 +168,25 @@ pub fn byte<'a>(byte: u8) -> Cell<'a, Byte> {
 }
 
 #[inline]
-pub fn char_<'a>(ch: char) -> Cell<'a, Char> {
+pub fn chr<'a>(ch: char) -> Cell<'a, Char> {
     Cell::new(Char::new(ch))
 }
 
 #[inline]
-pub fn string<'a, S>(s: S) -> Cell<'a, Str<'a>>
-where
-    S: Display,
-{
-    Cell::new(Str::new(s))
+pub fn slice<'a>(bytes: &[u8]) -> Cell<'a, Slice> {
+    Cell::new(Slice::new(bytes))
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "sse4.2"
+))]
+pub mod simd {
+    use super::*;
+    use crate::parser::simd::*;
+
+    #[inline]
+    pub fn take_until_literal<'a>(bytes: &[u8]) -> Cell<'a, TakeUntilLiteral> {
+        Cell::new(TakeUntilLiteral::new(bytes))
+    }
 }

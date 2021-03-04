@@ -5,7 +5,6 @@ authors = ["hehaowen00"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [profile.bench]
 codegen-units = 1
 lto = "fat"
@@ -29,4 +28,8 @@ criterion = "0.3"
 
 [[bench]]
 name = "http"
+harness = false
+
+[[bench]]
+name = "simd_http"
 harness = false
