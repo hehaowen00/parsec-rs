@@ -55,14 +55,14 @@ fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
 
 fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'a str)>> {
     let method = slice(b"GET")
-        | slice(b"HEAD")
-        | slice(b"POST")
-        | slice(b"PUT")
-        | slice(b"DELETE")
-        | slice(b"CONNECT")
-        | slice(b"OPTIONS")
-        | slice(b"TRACE")
-        | slice(b"PATCH");
+        .or(slice(b"HEAD"))
+        .or(slice(b"POST"))
+        .or(slice(b"PUT"))
+        .or(slice(b"DELETE"))
+        .or(slice(b"CONNECT"))
+        .or(slice(b"OPTIONS"))
+        .or(slice(b"TRACE"))
+        .or(slice(b"PATCH"));
 
     let method = method.map(|bytes| to_str(bytes));
     let path = take_until_literal(b" ").map(|bytes| to_str(bytes));

@@ -1,29 +1,21 @@
-use core::marker::PhantomData;
-
 pub trait Parse<'a> {
     type Output;
 
     fn parse(&self, input: &'a [u8]) -> Result<(&'a [u8], Self::Output), &'a [u8]>;
 }
 
-pub struct State<F, T>
-where
-    F: Fn() -> T,
-{
+pub struct State<F> {
     f: F,
 }
 
-impl<F, T> State<F, T>
-where
-    F: Fn() -> T,
-{
+impl<F> State<F> {
     #[inline]
     pub fn new(f: F) -> Self {
         Self { f }
     }
 }
 
-impl<'a, F, T> Parse<'a> for State<F, T>
+impl<'a, F, T> Parse<'a> for State<F>
 where
     F: Fn() -> T,
 {
@@ -35,32 +27,19 @@ where
     }
 }
 
-pub struct Map<'a, P, F, A, B>
-where
-    P: Parse<'a, Output = A>,
-    F: Fn(A) -> B + 'a,
-{
+pub struct Map<P, F> {
     parser: P,
     f: F,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P, F, A, B> Map<'a, P, F, A, B>
-where
-    P: Parse<'a, Output = A>,
-    F: Fn(A) -> B,
-{
+impl<P, F> Map<P, F> {
     #[inline]
     pub fn new(parser: P, f: F) -> Self {
-        Self {
-            parser,
-            f,
-            marker: PhantomData,
-        }
+        Self { parser, f }
     }
 }
 
-impl<'a, P, F, A, B> Parse<'a> for Map<'a, P, F, A, B>
+impl<'a, P, F, A, B> Parse<'a> for Map<P, F>
 where
     P: Parse<'a, Output = A>,
     F: Fn(A) -> B,
@@ -80,32 +59,22 @@ where
     }
 }
 
-pub struct And<'a, P1, P2, A, B>
-where
-    P1: Parse<'a, Output = A>,
-    P2: Parse<'a, Output = B>,
-{
+pub struct And<P1, P2> {
     parser1: P1,
     parser2: P2,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P1, P2, A, B> And<'a, P1, P2, A, B>
-where
-    P1: Parse<'a, Output = A>,
-    P2: Parse<'a, Output = B>,
-{
+impl<P1, P2> And<P1, P2> {
     #[inline]
     pub fn new(parser1: P1, parser2: P2) -> Self {
         Self {
             parser1,
             parser2,
-            marker: PhantomData,
         }
     }
 }
 
-impl<'a, P1, P2, A, B> Parse<'a> for And<'a, P1, P2, A, B>
+impl<'a, P1, P2, A, B> Parse<'a> for And<P1, P2>
 where
     P1: Parse<'a, Output = A>,
     P2: Parse<'a, Output = B>,
@@ -121,32 +90,22 @@ where
     }
 }
 
-pub struct Or<'a, P1, P2>
-where
-    P1: Parse<'a>,
-    P2: Parse<'a>,
-{
+pub struct Or<P1, P2> {
     parser1: P1,
     parser2: P2,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P1, P2> Or<'a, P1, P2>
-where
-    P1: Parse<'a>,
-    P2: Parse<'a>,
-{
+impl<P1, P2> Or<P1, P2> {
     #[inline]
     pub fn new(parser1: P1, parser2: P2) -> Self {
         Self {
             parser1,
             parser2,
-            marker: PhantomData,
         }
     }
 }
 
-impl<'a, P1, P2, O> Parse<'a> for Or<'a, P1, P2>
+impl<'a, P1, P2, O> Parse<'a> for Or<P1, P2>
 where
     P1: Parse<'a, Output = O>,
     P2: Parse<'a, Output = O>,
@@ -166,28 +125,18 @@ where
     }
 }
 
-pub struct Many0<'a, P>
-where
-    P: Parse<'a>,
-{
+pub struct Many0<P> {
     parser: P,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P> Many0<'a, P>
-where
-    P: Parse<'a>,
-{
+impl<P> Many0<P> {
     #[inline]
     pub fn new(parser: P) -> Self {
-        Self {
-            parser,
-            marker: PhantomData,
-        }
+        Self { parser }
     }
 }
 
-impl<'a, P> Parse<'a> for Many0<'a, P>
+impl<'a, P> Parse<'a> for Many0<P>
 where
     P: Parse<'a>,
 {
@@ -210,28 +159,19 @@ where
     }
 }
 
-pub struct Many1<'a, P>
-where
-    P: Parse<'a>,
-{
+pub struct Many1<P> {
     parser: P,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P> Many1<'a, P>
-where
-    P: Parse<'a>,
+impl<P> Many1<P>
 {
     #[inline]
     pub fn new(parser: P) -> Self {
-        Self {
-            parser,
-            marker: PhantomData,
-        }
+        Self { parser }
     }
 }
 
-impl<'a, P> Parse<'a> for Many1<'a, P>
+impl<'a, P> Parse<'a> for Many1<P>
 where
     P: Parse<'a>,
 {
@@ -264,32 +204,22 @@ where
     }
 }
 
-pub struct Skip<'a, P1, P2>
-where
-    P1: Parse<'a>,
-    P2: Parse<'a>,
-{
+pub struct Skip<P1, P2> {
     parser1: P1,
     parser2: P2,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P1, P2> Skip<'a, P1, P2>
-where
-    P1: Parse<'a>,
-    P2: Parse<'a>,
-{
+impl<'a, P1, P2> Skip<P1, P2> {
     #[inline]
     pub fn new(parser1: P1, parser2: P2) -> Self {
         Self {
             parser1,
             parser2,
-            marker: PhantomData,
         }
     }
 }
 
-impl<'a, P1, P2> Parse<'a> for Skip<'a, P1, P2>
+impl<'a, P1, P2> Parse<'a> for Skip<P1, P2>
 where
     P1: Parse<'a>,
     P2: Parse<'a>,
@@ -304,28 +234,18 @@ where
     }
 }
 
-pub struct TakeUntil<'a, P>
-where
-    P: Parse<'a>,
-{
+pub struct TakeUntil<P> {
     parser: P,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P> TakeUntil<'a, P>
-where
-    P: Parse<'a>,
-{
+impl<P> TakeUntil<P> {
     #[inline]
     pub fn new(parser: P) -> Self {
-        Self {
-            parser,
-            marker: PhantomData,
-        }
+        Self { parser }
     }
 }
 
-impl<'a, P> Parse<'a> for TakeUntil<'a, P>
+impl<'a, P> Parse<'a> for TakeUntil<P>
 where
     P: Parse<'a>,
 {
@@ -557,3 +477,4 @@ pub mod simd {
         }
     }
 }
+

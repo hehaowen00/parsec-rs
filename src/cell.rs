@@ -1,25 +1,14 @@
-use core::marker::PhantomData;
-use core::ops::BitOr;
-
 use crate::parser::*;
 
-pub struct Cell<'a, P>
-where
-    P: Parse<'a>,
-{
+pub struct Cell<P> {
     parser: P,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, P> Cell<'a, P>
-where
-    P: Parse<'a>,
-{
+impl<'a, P> Cell<P> {
     #[inline]
     pub fn new(parser: P) -> Self {
         Self {
             parser,
-            marker: PhantomData,
         }
     }
 
@@ -29,23 +18,25 @@ where
     }
 
     #[inline]
-    pub fn map<B, F>(self, f: F) -> Cell<'a, Map<'a, P, F, P::Output, B>>
+    pub fn map<B, F>(self, f: F) -> Cell<Map<P, F>>
     where
         F: Fn(P::Output) -> B,
+        P: Parse<'a>
     {
         Cell::new(Map::new(self.take(), f))
     }
 
     #[inline]
-    pub fn or<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Or<'a, P, RHS>>
+    pub fn or<RHS>(self, rhs: Cell<RHS>) -> Cell<Or<P, RHS>>
     where
         RHS: Parse<'a, Output = P::Output>,
+        P: Parse<'a>
     {
         Cell::new(Or::new(self.take(), rhs.take()))
     }
 
     #[inline]
-    pub fn then<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, And<'a, P, RHS, P::Output, RHS::Output>>
+    pub fn then<RHS>(self, rhs: Cell<RHS>) -> Cell<And<P, RHS>>
     where
         RHS: Parse<'a>,
     {
@@ -53,7 +44,7 @@ where
     }
 
     #[inline]
-    pub fn skip<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, P, RHS>>
+    pub fn skip<RHS>(self, rhs: Cell<RHS>) -> Cell<Skip<P, RHS>>
     where
         RHS: Parse<'a>,
     {
@@ -61,7 +52,7 @@ where
     }
 
     #[inline]
-    pub fn skip_left<RHS>(self, rhs: Cell<'a, RHS>) -> Cell<'a, Skip<'a, RHS, P>>
+    pub fn skip_left<RHS>(self, rhs: Cell<RHS>) -> Cell<Skip<RHS, P>>
     where
         RHS: Parse<'a>,
     {
@@ -69,20 +60,7 @@ where
     }
 }
 
-impl<'a, P, RHS, O> BitOr<Cell<'a, RHS>> for Cell<'a, P>
-where
-    RHS: Parse<'a, Output = O>,
-    P: Parse<'a, Output = O>,
-{
-    type Output = Cell<'a, Or<'a, P, RHS>>;
-
-    #[inline]
-    fn bitor(self, rhs: Cell<'a, RHS>) -> Self::Output {
-        self.or(rhs)
-    }
-}
-
-impl<'a, P> Parse<'a> for Cell<'a, P>
+impl<'a, P> Parse<'a> for Cell<P>
 where
     P: Parse<'a>,
 {
@@ -95,7 +73,7 @@ where
 }
 
 #[inline]
-pub fn cell<'a, P>(parser: P) -> Cell<'a, P>
+pub fn cell<'a, P>(parser: P) -> Cell<P>
 where
     P: Parse<'a>,
 {
@@ -103,7 +81,7 @@ where
 }
 
 #[inline]
-pub fn state<'a, F, T>(f: F) -> Cell<'a, State<F, T>>
+pub fn state<'a, F, T>(f: F) -> Cell<State<F>>
 where
     F: Fn() -> T,
 {
@@ -111,7 +89,7 @@ where
 }
 
 #[inline]
-pub fn many0<'a, P>(parser: P) -> Cell<'a, Many0<'a, P>>
+pub fn many0<'a, P>(parser: P) -> Cell<Many0<P>>
 where
     P: Parse<'a>,
 {
@@ -119,7 +97,7 @@ where
 }
 
 #[inline]
-pub fn many1<'a, P>(parser: P) -> Cell<'a, Many1<'a, P>>
+pub fn many1<'a, P>(parser: P) -> Cell<Many1<P>>
 where
     P: Parse<'a>,
 {
@@ -127,7 +105,7 @@ where
 }
 
 #[inline]
-pub fn skip<'a, P1, P2>(p1: P1, p2: P2) -> Cell<'a, Skip<'a, P1, P2>>
+pub fn skip<'a, P1, P2>(p1: P1, p2: P2) -> Cell<Skip<P1, P2>>
 where
     P1: Parse<'a>,
     P2: Parse<'a>,
@@ -136,7 +114,7 @@ where
 }
 
 #[inline]
-pub fn skip_left<'a, P1, P2>(p1: P1, p2: P2) -> Cell<'a, Skip<'a, P2, P1>>
+pub fn skip_left<'a, P1, P2>(p1: P1, p2: P2) -> Cell<Skip<P2, P1>>
 where
     P1: Parse<'a>,
     P2: Parse<'a>,
@@ -145,7 +123,7 @@ where
 }
 
 #[inline]
-pub fn take_until<'a, P>(parser: P) -> Cell<'a, TakeUntil<'a, P>>
+pub fn take_until<'a, P>(parser: P) -> Cell<TakeUntil<P>>
 where
     P: Parse<'a>,
 {
@@ -153,27 +131,27 @@ where
 }
 
 #[inline]
-pub fn any_char<'a>() -> Cell<'a, AnyChar> {
+pub fn any_char<'a>() -> Cell<AnyChar> {
     Cell::new(AnyChar::new())
 }
 
 #[inline]
-pub fn any_digit<'a>() -> Cell<'a, AnyDigit> {
+pub fn any_digit<'a>() -> Cell<AnyDigit> {
     Cell::new(AnyDigit::new())
 }
 
 #[inline]
-pub fn byte<'a>(byte: u8) -> Cell<'a, Byte> {
+pub fn byte<'a>(byte: u8) -> Cell<Byte> {
     Cell::new(Byte::new(byte))
 }
 
 #[inline]
-pub fn chr<'a>(ch: char) -> Cell<'a, Char> {
+pub fn chr<'a>(ch: char) -> Cell<Char> {
     Cell::new(Char::new(ch))
 }
 
 #[inline]
-pub fn slice<'a>(bytes: &[u8]) -> Cell<'a, Slice> {
+pub fn slice<'a>(bytes: &[u8]) -> Cell<Slice> {
     Cell::new(Slice::new(bytes))
 }
 

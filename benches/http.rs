@@ -54,16 +54,16 @@ fn http_parser<'a>() -> impl Parse<'a, Output = Request<'a>> {
         .map(|builder| builder.build())
 }
 
-fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'a str)>> {
+fn parse_request<'a>() -> Cell<impl Parse<'a, Output = (&'a str, &'a str, &'a str)>> {
     let method = slice(b"GET")
-        | slice(b"HEAD")
-        | slice(b"POST")
-        | slice(b"PUT")
-        | slice(b"DELETE")
-        | slice(b"CONNECT")
-        | slice(b"OPTIONS")
-        | slice(b"TRACE")
-        | slice(b"PATCH");
+        .or(slice(b"HEAD"))
+        .or(slice(b"POST"))
+        .or(slice(b"PUT"))
+        .or(slice(b"DELETE"))
+        .or(slice(b"CONNECT"))
+        .or(slice(b"OPTIONS"))
+        .or(slice(b"TRACE"))
+        .or(slice(b"PATCH"));
 
     let method = method.map(|bytes| to_str(bytes));
     let path = take_until(chr(' ')).map(|bytes| to_str(bytes));
@@ -78,7 +78,7 @@ fn parse_request<'a>() -> Cell<'a, impl Parse<'a, Output = (&'a str, &'a str, &'
         .map(|((a, b), c)| (a, b, c))
 }
 
-fn parse_headers<'a>() -> Cell<'a, impl Parse<'a, Output = Vec<(&'a str, &'a str)>>> {
+fn parse_headers<'a>() -> Cell<impl Parse<'a, Output = Vec<(&'a str, &'a str)>>> {
     let header = take_until(chr(':'))
         .skip(slice(b": "))
         .then(take_until(slice(b"\r\n")))
